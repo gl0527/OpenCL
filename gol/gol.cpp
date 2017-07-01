@@ -165,34 +165,34 @@ void destroyOpenCL(void)
 // OpenGL
 void initOpenGL(void)
 {
-	glClearColor(0.17f, 0.4f, 0.6f, 1.0f);
-	glDisable(GL_DEPTH_TEST);
+    glClearColor(0.17f, 0.4f, 0.6f, 1.0f);
+    glDisable(GL_DEPTH_TEST);
 }
 
 void display(void) {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     runOpenCL();
 
-	glutSwapBuffers();
+    glutSwapBuffers();
 }
 
 void idle(void) {
-	glutPostRedisplay();
+    glutPostRedisplay();
 }
 
 void keyDown(unsigned char key, int x, int y) {
-	keysPressed[key] = true;
+    keysPressed[key] = true;
 }
 
 void keyUp(unsigned char key, int x, int y) {
-	keysPressed[key] = false;
-	switch (key) {
-		case 27:
+    keysPressed[key] = false;
+    switch (key) {
+        case 27:
             destroyOpenCL();
-			exit(0);
-			break;
-	}
+            exit(0);
+            break;
+    }
 }
 
 void mouseClick(int button, int state, int x, int y) {
@@ -210,25 +210,25 @@ void reshape(int newWidth, int newHeight) {
 int main(int argc, char* argv[]) {
     srand(time(0));
 
-	glutInit(&argc, argv);
-	glutInitContextVersion(3, 0);
-	glutInitContextFlags(GLUT_CORE_PROFILE | GLUT_DEBUG);
-	glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
-	glutInitWindowSize(WIDTH, HEIGHT);
-	glutCreateWindow("Game of life");
+    glutInit(&argc, argv);
+    glutInitContextVersion(3, 0);
+    glutInitContextFlags(GLUT_CORE_PROFILE | GLUT_DEBUG);
+    glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
+    glutInitWindowSize(WIDTH, HEIGHT);
+    glutCreateWindow("Game of life");
 
-	initOpenGL();
+    initOpenGL();
 
-	glutDisplayFunc(display);
-	glutIdleFunc(idle);
-	glutReshapeFunc(reshape);
-	glutKeyboardFunc(keyDown);
-	glutKeyboardUpFunc(keyUp);
-	glutMouseFunc(mouseClick);
-	glutMotionFunc(mouseMove);
+    glutDisplayFunc(display);
+    glutIdleFunc(idle);
+    glutReshapeFunc(reshape);
+    glutKeyboardFunc(keyDown);
+    glutKeyboardUpFunc(keyUp);
+    glutMouseFunc(mouseClick);
+    glutMotionFunc(mouseMove);
 
     initOpenCL();
-	glutMainLoop();
-	return 0;
+    glutMainLoop();
+    return 0;
 }
 
