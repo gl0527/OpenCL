@@ -145,9 +145,11 @@ void runOpenCL(void)
     err = clEnqueueReadBuffer(commands, deviceBuffer_out, CL_TRUE, 0, sizeof(cl_float3) * WIDTH * HEIGHT, hostBuffer, 0, NULL, NULL);
     if (!CheckCLError(err)) exit(-1);
 
+    // swap the device buffers for the next step of the computation
+    std::swap(deviceBuffer, deviceBuffer_out);
+    
     // output of results
     glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, hostBuffer);
-    std::swap(deviceBuffer, deviceBuffer_out);
 }
 
 void destroyOpenCL(void)
