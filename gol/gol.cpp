@@ -3,10 +3,7 @@
 #include "../Common.h"
 
 const char* kernelString = STRINGIFY(
-    __constant float3 aliveColor = (float3)(1.0f, 1.0f, 1.0f);
-    __constant float3 deadColor = (float3)(0.0f, 0.0f, 0.0f);
-
-    __kernel void gol(__global float3* buf, const int width, const int height, __global float3* out)
+    __kernel void gol(__global char* in, const int width, const int height, __global char* out)
     {
         int2 id = (int2)(get_global_id(0), get_global_id(1));
         if (id.x < width && id.y < height)
@@ -17,15 +14,11 @@ const char* kernelString = STRINGIFY(
                 {
                     int row = (y + height) % height;
                     int col = (x + width) % width; 
-                    if (buf[row * width + col].x > 0.0f)
-                        aliveNeighbors += 1;
+                    aliveNeighbors += in[row * width + col];
                 } 
             int idx = id.y * width + id.x;
-            if (buf[idx].x > 0.0f)
-                aliveNeighbors -= 1;
-            out[idx] = (aliveNeighbors == 3) || (aliveNeighbors == 2 && buf[idx].x > 0.0f) 
-                ? aliveColor
-                : deadColor;
+            aliveNeighbors -= in[idx];
+            out[idx] = (aliveNeighbors == 3) || (aliveNeighbors == 2 && in[idx] == 1) ? 1 : 0;
         }
     }
 );
@@ -46,9 +39,13 @@ cl_command_queue commands = NULL;
 cl_program program = NULL;
 cl_kernel kernel = NULL;
 
-cl_float3* hostBuffer = NULL;
+char* hostBuffer = NULL;
+cl_float3* image = NULL;
 cl_mem deviceBuffer = NULL;
 cl_mem deviceBuffer_out = NULL;
+
+const cl_float3 aliveColor = {1.0f, 1.0f, 1.0f};
+const cl_float3 deadColor = {0.0f, 0.0f, 0.0f};
 
 cl_int err = CL_SUCCESS;
 
@@ -108,21 +105,19 @@ void initOpenCL(void)
     globalWorkSize[0] = WIDTH;
     globalWorkSize[1] = HEIGHT;
 
-    hostBuffer = new cl_float3[WIDTH * HEIGHT];
+    image = new cl_float3[WIDTH * HEIGHT];
+    hostBuffer = new char[WIDTH * HEIGHT];
+
     for (int i = 0; i < WIDTH * HEIGHT; ++i)
-    {
-        if((float)rand() / RAND_MAX < 0.3)
-            hostBuffer[i] = {1.0f, 1.0f, 1.0f};
-        else
-            hostBuffer[i] = {0.0f, 0.0f, 0.0f};
-    }
-    deviceBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_float3) * WIDTH * HEIGHT, NULL, &err);
+        hostBuffer[i] = ((float) rand() / RAND_MAX < 0.3) ? 1 : 0;
+
+    deviceBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(char) * WIDTH * HEIGHT, NULL, &err);
     if (!deviceBuffer || !CheckCLError(err)) exit(-1);
 
-    deviceBuffer_out = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_float3) * WIDTH * HEIGHT, NULL, &err);
+    deviceBuffer_out = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(char) * WIDTH * HEIGHT, NULL, &err);
     if (!deviceBuffer_out || !CheckCLError(err)) exit(-1);
 
-    err = clEnqueueWriteBuffer(commands, deviceBuffer, CL_TRUE, 0, sizeof(cl_float3) * WIDTH * HEIGHT, hostBuffer, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, deviceBuffer, CL_TRUE, 0, sizeof(char) * WIDTH * HEIGHT, hostBuffer, 0, NULL, NULL);
     if (!CheckCLError(err)) exit(-1);
 }
 
@@ -142,14 +137,17 @@ void runOpenCL(void)
 
     // getting back the results
     clFinish(commands);
-    err = clEnqueueReadBuffer(commands, deviceBuffer_out, CL_TRUE, 0, sizeof(cl_float3) * WIDTH * HEIGHT, hostBuffer, 0, NULL, NULL);
+    err = clEnqueueReadBuffer(commands, deviceBuffer_out, CL_TRUE, 0, sizeof(char) * WIDTH * HEIGHT, hostBuffer, 0, NULL, NULL);
     if (!CheckCLError(err)) exit(-1);
 
     // swap the device buffers for the next step of the computation
     std::swap(deviceBuffer, deviceBuffer_out);
     
     // output of results
-    glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, hostBuffer);
+    for (int i = 0; i < WIDTH * HEIGHT; ++i)
+        image[i] = (hostBuffer[i] == 1) ? aliveColor : deadColor;
+
+    glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, image);
 }
 
 void destroyOpenCL(void)
@@ -162,6 +160,7 @@ void destroyOpenCL(void)
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
     delete[] hostBuffer;
+    delete[] image;
 }
 
 // OpenGL
