@@ -2,52 +2,56 @@
 #include <CL/cl2.hpp>
 #include "../Common.h"
 
+// kernel function
 const char* kernelString = STRINGIFY(
     __kernel void gol(__global char* in, const int width, const int height, __global char* out)
     {
-        int2 id = (int2)(get_global_id(0), get_global_id(1));
-        if (id.x < width && id.y < height)
+        int2 threadID_2D = (int2)(get_global_id(0), get_global_id(1));
+
+        if (threadID_2D.x < width && threadID_2D.y < height)
         {
             char aliveNeighbors = 0;
-            for (int y = id.y-1; y <= id.y+1; ++y)
-                for (int x = id.x-1; x <= id.x+1; ++x)
+            for (int y = threadID_2D.y-1; y <= threadID_2D.y+1; ++y)
+                for (int x = threadID_2D.x-1; x <= threadID_2D.x+1; ++x)
                 {
                     int row = (y + height) % height;
                     int col = (x + width) % width; 
                     aliveNeighbors += in[row * width + col];
                 } 
-            int idx = id.y * width + id.x;
-            aliveNeighbors -= in[idx];
-            out[idx] = (aliveNeighbors == 3) || (aliveNeighbors == 2 && in[idx] == 1) ? 1 : 0;
+            int threadID_1D = threadID_2D.y * width + threadID_2D.x;
+            aliveNeighbors -= in[threadID_1D];
+            out[threadID_1D] = (aliveNeighbors == 3) || (aliveNeighbors == 2 && in[threadID_1D]);
         }
     }
 );
 
-const char* kernelName = "gol";
+// global variables
+const char* kernelName      = "gol";
 
-const int WIDTH = 512;
-const int HEIGHT = 512;
+const int WIDTH             = 800;
+const int HEIGHT            = 600;
+const int NUM_OF_CELLS      = WIDTH * HEIGHT;
 bool keysPressed[256];
 
-const cl_uint workDim = 2;
+const cl_uint workDim       = 2;
 size_t globalWorkSize[workDim];
 
-cl_platform_id platform = NULL;
-cl_device_id device = NULL;
-cl_context context = NULL;
-cl_command_queue commands = NULL;
-cl_program program = NULL;
-cl_kernel kernel = NULL;
+cl_platform_id platform     = NULL;
+cl_device_id device         = NULL;
+cl_context context          = NULL;
+cl_command_queue commands   = NULL;
+cl_program program          = NULL;
+cl_kernel kernel            = NULL;
 
-char* hostBuffer = NULL;
-cl_float3* image = NULL;
-cl_mem deviceBuffer = NULL;
-cl_mem deviceBuffer_out = NULL;
+char* hostBuffer            = NULL;
+cl_float3* image            = NULL;
+cl_mem deviceBuffer         = NULL;
+cl_mem deviceBuffer_out     = NULL;
 
-const cl_float3 aliveColor = {1.0f, 1.0f, 1.0f};
-const cl_float3 deadColor = {0.0f, 0.0f, 0.0f};
+const cl_float3 aliveColor  = {1.0f, 1.0f, 0.0f};
+const cl_float3 deadColor   = {0.1f, 0.1f, 0.1f};
 
-cl_int err = CL_SUCCESS;
+cl_int err                  = CL_SUCCESS;
 
 // OpenCL
 void initOpenCL(void)
@@ -89,11 +93,17 @@ void initOpenCL(void)
     if (!CheckCLError(err))
     {
         size_t logLength;
+        char* log = nullptr;
         clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
-        char* log = new char[logLength];
+        try {
+            log = new char[logLength];
+        } catch (std::bad_alloc& ba) {
+            std::cerr << "Bad alloc exception was caught:" << ba.what() << '\n';
+        }
         clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, logLength, log, 0);
         std::cout << log << std::endl;
-        delete[] log;
+        if (log != nullptr)
+            delete[] log;
         exit(-1);
     }
 
@@ -105,19 +115,23 @@ void initOpenCL(void)
     globalWorkSize[0] = WIDTH;
     globalWorkSize[1] = HEIGHT;
 
-    image = new cl_float3[WIDTH * HEIGHT];
-    hostBuffer = new char[WIDTH * HEIGHT];
+    try {
+        image = new cl_float3[NUM_OF_CELLS];
+        hostBuffer = new char[NUM_OF_CELLS];
+    } catch (std::bad_alloc& ba) {
+        std::cerr << "Bad alloc exception was caught:" << ba.what() << '\n';
+    }
 
-    for (int i = 0; i < WIDTH * HEIGHT; ++i)
+    for (int i = 0; i < NUM_OF_CELLS; ++i)
         hostBuffer[i] = ((float) rand() / RAND_MAX < 0.3) ? 1 : 0;
 
-    deviceBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(char) * WIDTH * HEIGHT, NULL, &err);
+    deviceBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE, NUM_OF_CELLS, NULL, &err);
     if (!deviceBuffer || !CheckCLError(err)) exit(-1);
 
-    deviceBuffer_out = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(char) * WIDTH * HEIGHT, NULL, &err);
+    deviceBuffer_out = clCreateBuffer(context, CL_MEM_READ_WRITE, NUM_OF_CELLS, NULL, &err);
     if (!deviceBuffer_out || !CheckCLError(err)) exit(-1);
 
-    err = clEnqueueWriteBuffer(commands, deviceBuffer, CL_TRUE, 0, sizeof(char) * WIDTH * HEIGHT, hostBuffer, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, deviceBuffer, CL_TRUE, 0, NUM_OF_CELLS, hostBuffer, 0, NULL, NULL);
     if (!CheckCLError(err)) exit(-1);
 }
 
@@ -137,16 +151,15 @@ void runOpenCL(void)
 
     // getting back the results
     clFinish(commands);
-    err = clEnqueueReadBuffer(commands, deviceBuffer_out, CL_TRUE, 0, sizeof(char) * WIDTH * HEIGHT, hostBuffer, 0, NULL, NULL);
+    err = clEnqueueReadBuffer(commands, deviceBuffer_out, CL_TRUE, 0, NUM_OF_CELLS, hostBuffer, 0, NULL, NULL);
     if (!CheckCLError(err)) exit(-1);
 
     // swap the device buffers for the next step of the computation
     std::swap(deviceBuffer, deviceBuffer_out);
     
-    // output of results
-    for (int i = 0; i < WIDTH * HEIGHT; ++i)
+    // updating and drawing the image
+    for (int i = 0; i < NUM_OF_CELLS; ++i)
         image[i] = (hostBuffer[i] == 1) ? aliveColor : deadColor;
-
     glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, image);
 }
 
@@ -159,8 +172,10 @@ void destroyOpenCL(void)
     clReleaseMemObject(deviceBuffer);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
-    delete[] hostBuffer;
-    delete[] image;
+    if (hostBuffer)
+        delete[] hostBuffer;
+    if (image)
+        delete[] image;
 }
 
 // OpenGL
