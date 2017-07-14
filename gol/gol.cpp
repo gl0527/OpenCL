@@ -54,11 +54,11 @@ const cl_float3 deadColor   = {0.1f, 0.1f, 0.1f};
 cl_int err                  = CL_SUCCESS;
 
 // OpenCL
-void initOpenCL(void)
+bool initOpenCL(void)
 {
     // get available platforms - we want to get maximum 1 platform
     err = clGetPlatformIDs(1, &platform, NULL);
-    if (!CheckCLError(err)) exit(-1);
+    if (!CheckCLError(err)) return false;
     
     const char MAXLENGTH = 40;
     char vendor[MAXLENGTH];
@@ -67,26 +67,26 @@ void initOpenCL(void)
 
     // get available GPU devices - we want to get maximum 1 device
     err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
-    if (!CheckCLError(err)) exit(-1);
+    if (!CheckCLError(err)) return false;
 
     char deviceName[MAXLENGTH];
     clGetDeviceInfo(device, CL_DEVICE_NAME, MAXLENGTH, &deviceName, NULL);
     printf("Device name: %s\n", deviceName);
 
-    // creation of OpenCl context with given properties
+    // creation of OpenCL context with given properties
     cl_context_properties props[] = { 
         CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 
     };
     context = clCreateContext(props, 1, &device, NULL, NULL, &err);
-    if(!context || !CheckCLError(err)) exit(-1);
+    if(!context || !CheckCLError(err)) return false;
 
     // creation of OpenCL command queue with the CL_QUEUE_PROFILING_ENABLE property
     commands = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
-    if(!commands || !CheckCLError(err)) exit(-1);
+    if(!commands || !CheckCLError(err)) return false;
 
     // creation of the program
     program = clCreateProgramWithSource(context, 1, &kernelString, NULL, &err);
-    if (!CheckCLError(err)) exit(-1);
+    if (!CheckCLError(err)) return false;
 
     // compilation of the program
     err = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
@@ -99,17 +99,20 @@ void initOpenCL(void)
             log = new char[logLength];
         } catch (std::bad_alloc& ba) {
             std::cerr << "Bad alloc exception was caught:" << ba.what() << '\n';
+
+            return false;
         }
         clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, logLength, log, 0);
         std::cout << log << std::endl;
         if (log != nullptr)
             delete[] log;
-        exit(-1);
+
+        return false;
     }
 
     // creation of the kernel
     kernel = clCreateKernel(program, kernelName, &err);
-    if(!CheckCLError(err)) exit(-1);
+    if(!CheckCLError(err)) return false;
 
     // initialization of host and device data
     globalWorkSize[0] = WIDTH;
@@ -119,20 +122,24 @@ void initOpenCL(void)
         image = new cl_float3[NUM_OF_CELLS];
         hostBuffer = new char[NUM_OF_CELLS];
     } catch (std::bad_alloc& ba) {
-        std::cerr << "Bad alloc exception was caught:" << ba.what() << '\n';
+        std::cerr << "Bad alloc exception was caught: " << ba.what() << '\n';
+
+        return false;
     }
 
     for (int i = 0; i < NUM_OF_CELLS; ++i)
         hostBuffer[i] = ((float) rand() / RAND_MAX < 0.3) ? 1 : 0;
 
     deviceBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE, NUM_OF_CELLS, NULL, &err);
-    if (!deviceBuffer || !CheckCLError(err)) exit(-1);
+    if (!deviceBuffer || !CheckCLError(err)) return false;
 
     deviceBuffer_out = clCreateBuffer(context, CL_MEM_READ_WRITE, NUM_OF_CELLS, NULL, &err);
-    if (!deviceBuffer_out || !CheckCLError(err)) exit(-1);
+    if (!deviceBuffer_out || !CheckCLError(err)) return false;
 
     err = clEnqueueWriteBuffer(commands, deviceBuffer, CL_TRUE, 0, NUM_OF_CELLS, hostBuffer, 0, NULL, NULL);
-    if (!CheckCLError(err)) exit(-1);
+    if (!CheckCLError(err)) return false;
+    
+    return true;
 }
 
 void runOpenCL(void)
@@ -172,9 +179,9 @@ void destroyOpenCL(void)
     clReleaseMemObject(deviceBuffer);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
-    if (hostBuffer)
+    if (hostBuffer != nullptr)
         delete[] hostBuffer;
-    if (image)
+    if (image != nullptr)
         delete[] image;
 }
 
@@ -226,6 +233,9 @@ void reshape(int newWidth, int newHeight) {
 int main(int argc, char* argv[]) {
     srand(time(0));
 
+    if (!initOpenCL())
+        return 1;
+
     glutInit(&argc, argv);
     glutInitContextVersion(3, 0);
     glutInitContextFlags(GLUT_CORE_PROFILE | GLUT_DEBUG);
@@ -243,8 +253,8 @@ int main(int argc, char* argv[]) {
     glutMouseFunc(mouseClick);
     glutMotionFunc(mouseMove);
 
-    initOpenCL();
     glutMainLoop();
+
     return 0;
 }
 
