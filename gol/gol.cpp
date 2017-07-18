@@ -35,6 +35,7 @@ const cl_float3 deadColor   = {0.1f, 0.1f, 0.1f};
 
 // global variables
 bool keysPressed [256];
+bool running                = true;
 
 size_t globalWorkSize [workDim];
 
@@ -62,7 +63,7 @@ bool InitOpenCL (void)
     const char MAXLENGTH = 40;
     char vendor [MAXLENGTH];
     clGetPlatformInfo (platform, CL_PLATFORM_VENDOR, MAXLENGTH, vendor, NULL);
-    printf ("Vendor: %s\n", vendor);
+    printf ("GOU vendor: %s\n", vendor);
 
     // get available GPU devices - we want to get maximum 1 device
     cl_device_id device = nullptr;
@@ -71,7 +72,7 @@ bool InitOpenCL (void)
 
     char deviceName [MAXLENGTH];
     clGetDeviceInfo (device, CL_DEVICE_NAME, MAXLENGTH, &deviceName, NULL);
-    printf ("Device name: %s\n", deviceName);
+    printf ("GPU device: %s\n", deviceName);
 
     // creation of OpenCL context with given properties
     cl_context_properties props [] = { 
@@ -97,7 +98,7 @@ bool InitOpenCL (void)
         clGetProgramBuildInfo (program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
         try {
             log = new char [logLength];
-        } catch (std::bad_alloc& ba) {
+        } catch (const std::bad_alloc& ba) {
             std::cerr << "Bad alloc exception was caught:" << ba.what () << '\n';
 
             return false;
@@ -121,7 +122,7 @@ bool InitOpenCL (void)
     try {
         image = new cl_float3 [NUM_OF_CELLS];
         hostBuffer = new char [NUM_OF_CELLS];
-    } catch (std::bad_alloc& ba) {
+    } catch (const std::bad_alloc& ba) {
         std::cerr << "Bad alloc exception was caught: " << ba.what () << '\n';
 
         return false;
@@ -164,10 +165,9 @@ void RunOpenCL (void)
     // swap the device buffers for the next step of the computation
     std::swap (deviceBuffer, deviceBuffer_out);
     
-    // updating and drawing the image
+    // updating the image
     for (int i = 0; i < NUM_OF_CELLS; ++i)
         image [i] = (hostBuffer [i] == 1) ? aliveColor : deadColor;
-    glDrawPixels (WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, image);
 }
 
 
@@ -199,7 +199,9 @@ void Display (void)
 {
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    RunOpenCL ();
+    if (running)
+        RunOpenCL ();
+    glDrawPixels (WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, image);
 
     glutSwapBuffers ();
 }
@@ -223,6 +225,9 @@ void KeyUp (unsigned char key, int /*x*/, int /*y*/)
         case 27:
             DestroyOpenCL ();
             exit (0);
+            break;
+        case 32:
+            running = !running;
             break;
     }
 }
