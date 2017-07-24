@@ -34,7 +34,7 @@ const cl_float3 aliveColor  = {1.0f, 1.0f, 0.0f};
 const cl_float3 deadColor   = {0.1f, 0.1f, 0.1f};
 
 // global variables
-bool keysPressed [256];
+bool keysPressed [256]      = { false };
 bool running                = true;
 
 size_t globalWorkSize [workDim];
@@ -57,45 +57,50 @@ bool InitOpenCL (void)
 {
     // get available platforms - we want to get maximum 1 platform
     cl_platform_id platform = nullptr;
-    err = clGetPlatformIDs (1, &platform, NULL);
-    if (CheckCLError (err) == false) return false;
+    err = clGetPlatformIDs (1, &platform, nullptr);
+    if (CheckCLError (err) == false)
+        return false;
     
     const char MAXLENGTH = 40;
     char vendor [MAXLENGTH];
-    clGetPlatformInfo (platform, CL_PLATFORM_VENDOR, MAXLENGTH, vendor, NULL);
+    clGetPlatformInfo (platform, CL_PLATFORM_VENDOR, MAXLENGTH, vendor, nullptr);
     printf ("GOU vendor: %s\n", vendor);
 
     // get available GPU devices - we want to get maximum 1 device
     cl_device_id device = nullptr;
-    err = clGetDeviceIDs (platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
-    if (CheckCLError (err) == false) return false;
+    err = clGetDeviceIDs (platform, CL_DEVICE_TYPE_GPU, 1, &device, nullptr);
+    if (CheckCLError (err) == false)
+        return false;
 
     char deviceName [MAXLENGTH];
-    clGetDeviceInfo (device, CL_DEVICE_NAME, MAXLENGTH, &deviceName, NULL);
+    clGetDeviceInfo (device, CL_DEVICE_NAME, MAXLENGTH, &deviceName, nullptr);
     printf ("GPU device: %s\n", deviceName);
 
     // creation of OpenCL context with given properties
     cl_context_properties props [] = { 
         CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 
     };
-    context = clCreateContext (props, 1, &device, NULL, NULL, &err);
-    if (context == nullptr || CheckCLError (err) == false) return false;
+    context = clCreateContext (props, 1, &device, nullptr, nullptr, &err);
+    if (context == nullptr || CheckCLError (err) == false)
+        return false;
 
     // creation of OpenCL command queue with the CL_QUEUE_PROFILING_ENABLE property
     commands = clCreateCommandQueue (context, device, CL_QUEUE_PROFILING_ENABLE, &err);
-    if (commands == nullptr || CheckCLError (err) == false) return false;
+    if (commands == nullptr || CheckCLError (err) == false)
+        return false;
 
     // creation of the program
-    program = clCreateProgramWithSource (context, 1, &kernelString, NULL, &err);
-    if (CheckCLError (err) == false) return false;
+    program = clCreateProgramWithSource (context, 1, &kernelString, nullptr, &err);
+    if (CheckCLError (err) == false)
+        return false;
 
     // compilation of the program
-    err = clBuildProgram (program, 1, &device, NULL, NULL, NULL);
+    err = clBuildProgram (program, 1, &device, nullptr, nullptr, nullptr);
     if (CheckCLError (err) == false)
     {
         size_t logLength;
         char* log = nullptr;
-        clGetProgramBuildInfo (program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
+        clGetProgramBuildInfo (program, device, CL_PROGRAM_BUILD_LOG, 0, nullptr, &logLength);
         try {
             log = new char [logLength];
         } catch (const std::bad_alloc& ba) {
@@ -113,7 +118,8 @@ bool InitOpenCL (void)
 
     // creation of the kernel
     kernel = clCreateKernel (program, kernelName, &err);
-    if (CheckCLError (err) == false) return false;
+    if (CheckCLError (err) == false)
+        return false;
 
     // initialization of host and device data
     globalWorkSize [0] = WIDTH;
@@ -131,14 +137,17 @@ bool InitOpenCL (void)
     for (int i = 0; i < NUM_OF_CELLS; ++i)
         hostBuffer [i] = ( (float) rand () / RAND_MAX < 0.3) ? 1 : 0;
 
-    deviceBuffer = clCreateBuffer (context, CL_MEM_READ_WRITE, NUM_OF_CELLS, NULL, &err);
-    if (deviceBuffer == nullptr || CheckCLError (err) == false) return false;
+    deviceBuffer = clCreateBuffer (context, CL_MEM_READ_WRITE, NUM_OF_CELLS, nullptr, &err);
+    if (deviceBuffer == nullptr || CheckCLError (err) == false)
+        return false;
 
-    deviceBuffer_out = clCreateBuffer (context, CL_MEM_READ_WRITE, NUM_OF_CELLS, NULL, &err);
-    if (deviceBuffer_out == nullptr || CheckCLError (err) == false) return false;
+    deviceBuffer_out = clCreateBuffer (context, CL_MEM_READ_WRITE, NUM_OF_CELLS, nullptr, &err);
+    if (deviceBuffer_out == nullptr || CheckCLError (err) == false)
+        return false;
 
-    err = clEnqueueWriteBuffer (commands, deviceBuffer, CL_TRUE, 0, NUM_OF_CELLS, hostBuffer, 0, NULL, NULL);
-    if (CheckCLError (err) == false) return false;
+    err = clEnqueueWriteBuffer (commands, deviceBuffer, CL_TRUE, 0, NUM_OF_CELLS, hostBuffer, 0, nullptr, nullptr);
+    if (CheckCLError (err) == false)
+        return false;
     
     return true;
 }
@@ -151,16 +160,19 @@ void RunOpenCL (void)
     err |= clSetKernelArg (kernel, 1, sizeof (int), &WIDTH); 
     err |= clSetKernelArg (kernel, 2, sizeof (int), &HEIGHT); 
     err |= clSetKernelArg (kernel, 3, sizeof (cl_mem), &deviceBuffer_out); 
-    if (CheckCLError (err) == false) exit (-1);
+    if (CheckCLError (err) == false)
+        exit (-1);
 
     // kernel execution
-    err = clEnqueueNDRangeKernel (commands, kernel, workDim, NULL, globalWorkSize, NULL, 0, NULL, NULL);
-    if (CheckCLError (err) == false) exit (-1);
+    err = clEnqueueNDRangeKernel (commands, kernel, workDim, nullptr, globalWorkSize, nullptr, 0, nullptr, nullptr);
+    if (CheckCLError (err) == false)
+        exit (-1);
 
     // getting back the results
     clFinish (commands);
-    err = clEnqueueReadBuffer (commands, deviceBuffer_out, CL_TRUE, 0, NUM_OF_CELLS, hostBuffer, 0, NULL, NULL);
-    if (CheckCLError (err) == false) exit (-1);
+    err = clEnqueueReadBuffer (commands, deviceBuffer_out, CL_TRUE, 0, NUM_OF_CELLS, hostBuffer, 0, nullptr, nullptr);
+    if (CheckCLError (err) == false)
+        exit (-1);
 
     // swap the device buffers for the next step of the computation
     std::swap (deviceBuffer, deviceBuffer_out);
@@ -235,19 +247,16 @@ void KeyUp (unsigned char key, int /*x*/, int /*y*/)
 
 void MouseClick (int /*button*/, int /*state*/, int /*x*/, int /*y*/)
 {
-
 }
 
 
 void MouseMove (int /*x*/, int /*y*/)
 {
-
 }
 
 
 void Reshape (int /*newWidth*/, int /*newHeight*/)
 {
-
 }
 
 
