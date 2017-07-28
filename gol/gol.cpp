@@ -272,22 +272,22 @@ int main (int argc, char* argv [])
     if (InitOpenCL () == false)
         return 1;
 
-    glutInit 				(&argc, argv);
-    glutInitContextVersion 	(3, 0);
-    glutInitContextFlags 	(GLUT_CORE_PROFILE | GLUT_DEBUG);
-    glutInitDisplayMode 	(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
-    glutInitWindowSize 		(WIDTH, HEIGHT);
-    glutCreateWindow 		("Game of life");
+    glutInit                (&argc, argv);
+    glutInitContextVersion  (3, 0);
+    glutInitContextFlags    (GLUT_CORE_PROFILE | GLUT_DEBUG);
+    glutInitDisplayMode     (GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
+    glutInitWindowSize      (WIDTH, HEIGHT);
+    glutCreateWindow        ("Game of life");
 
     InitOpenGL ();
 
-    glutDisplayFunc 	(Display);
-    glutIdleFunc 		(Idle);
-    glutReshapeFunc 	(Reshape);
-    glutKeyboardFunc 	(KeyDown);
-    glutKeyboardUpFunc 	(KeyUp);
-    glutMouseFunc 		(MouseClick);
-    glutMotionFunc 		(MouseMove);
+    glutDisplayFunc     (Display);
+    glutIdleFunc        (Idle);
+    glutReshapeFunc     (Reshape);
+    glutKeyboardFunc    (KeyDown);
+    glutKeyboardUpFunc  (KeyUp);
+    glutMouseFunc       (MouseClick);
+    glutMotionFunc      (MouseMove);
 
     glutMainLoop ();
 
