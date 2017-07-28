@@ -25,31 +25,39 @@ const char* kernelString = STRINGIFY (
     }
 );
 
-const char* kernelName      = "GOL";
-const int WIDTH             = 800;
-const int HEIGHT            = 600;
-const int NUM_OF_CELLS      = WIDTH * HEIGHT;
-const cl_uint workDim       = 2;
-const cl_float3 aliveColor  = {1.0f, 1.0f, 0.0f};
-const cl_float3 deadColor   = {0.1f, 0.1f, 0.1f};
+const int WIDTH                 = 800;
+const int HEIGHT                = 600;
+const int NUM_OF_CELLS          = WIDTH * HEIGHT;
+const size_t globalWorkSize []  = { WIDTH, HEIGHT };
 
 // global variables
-bool keysPressed [256]      = { false };
-bool running                = true;
+bool keysPressed [256]          = { false };
+bool running                    = true;
 
-size_t globalWorkSize [workDim];
-
-cl_context context          = nullptr;
-cl_command_queue commands   = nullptr;
-cl_program program          = nullptr;
-cl_kernel kernel            = nullptr;
+cl_context context              = nullptr;
+cl_command_queue commands       = nullptr;
+cl_program program              = nullptr;
+cl_kernel kernel                = nullptr;
                               
-char* hostBuffer            = nullptr;
-cl_float3* image            = nullptr;
-cl_mem deviceBuffer         = nullptr;
-cl_mem deviceBuffer_out     = nullptr;
+char* hostBuffer                = nullptr;
+cl_float3* image                = nullptr;
+cl_mem deviceBuffer             = nullptr;
+cl_mem deviceBuffer_out         = nullptr;
 
-cl_int err                  = CL_SUCCESS;
+cl_int err                      = CL_SUCCESS;
+
+
+bool InitData (void)
+{
+    for (int i = 0; i < NUM_OF_CELLS; ++i)
+        hostBuffer [i] = ( (float) rand () / RAND_MAX < 0.3) ? 1 : 0;
+
+    err = clEnqueueWriteBuffer (commands, deviceBuffer, CL_TRUE, 0, NUM_OF_CELLS, hostBuffer, 0, nullptr, nullptr);
+    if (CheckCLError (err) == false)
+        return false;
+
+    return true;
+}
 
 
 // OpenCL
@@ -64,7 +72,7 @@ bool InitOpenCL (void)
     const char MAXLENGTH = 40;
     char vendor [MAXLENGTH];
     clGetPlatformInfo (platform, CL_PLATFORM_VENDOR, MAXLENGTH, vendor, nullptr);
-    printf ("GOU vendor: %s\n", vendor);
+    printf ("GPU vendor: %s\n", vendor);
 
     // get available GPU devices - we want to get maximum 1 device
     cl_device_id device = nullptr;
@@ -104,7 +112,7 @@ bool InitOpenCL (void)
         try {
             log = new char [logLength];
         } catch (const std::bad_alloc& ba) {
-            std::cerr << "Bad alloc exception was caught:" << ba.what () << '\n';
+            std::cerr << "Bad alloc exception was caught: " << ba.what () << '\n';
 
             return false;
         }
@@ -117,14 +125,11 @@ bool InitOpenCL (void)
     }
 
     // creation of the kernel
-    kernel = clCreateKernel (program, kernelName, &err);
+    kernel = clCreateKernel (program, "GOL", &err);
     if (CheckCLError (err) == false)
         return false;
 
-    // initialization of host and device data
-    globalWorkSize [0] = WIDTH;
-    globalWorkSize [1] = HEIGHT;
-
+    // allocation of host and device data
     try {
         image = new cl_float3 [NUM_OF_CELLS];
         hostBuffer = new char [NUM_OF_CELLS];
@@ -134,9 +139,6 @@ bool InitOpenCL (void)
         return false;
     }
 
-    for (int i = 0; i < NUM_OF_CELLS; ++i)
-        hostBuffer [i] = ( (float) rand () / RAND_MAX < 0.3) ? 1 : 0;
-
     deviceBuffer = clCreateBuffer (context, CL_MEM_READ_WRITE, NUM_OF_CELLS, nullptr, &err);
     if (deviceBuffer == nullptr || CheckCLError (err) == false)
         return false;
@@ -145,8 +147,8 @@ bool InitOpenCL (void)
     if (deviceBuffer_out == nullptr || CheckCLError (err) == false)
         return false;
 
-    err = clEnqueueWriteBuffer (commands, deviceBuffer, CL_TRUE, 0, NUM_OF_CELLS, hostBuffer, 0, nullptr, nullptr);
-    if (CheckCLError (err) == false)
+    // initialization of host and device data
+    if (InitData () == false)
         return false;
     
     return true;
@@ -164,7 +166,7 @@ void RunOpenCL (void)
         exit (-1);
 
     // kernel execution
-    err = clEnqueueNDRangeKernel (commands, kernel, workDim, nullptr, globalWorkSize, nullptr, 0, nullptr, nullptr);
+    err = clEnqueueNDRangeKernel (commands, kernel, 2, nullptr, globalWorkSize, nullptr, 0, nullptr, nullptr);
     if (CheckCLError (err) == false)
         exit (-1);
 
@@ -179,7 +181,7 @@ void RunOpenCL (void)
     
     // updating the image
     for (int i = 0; i < NUM_OF_CELLS; ++i)
-        image [i] = (hostBuffer [i] == 1) ? aliveColor : deadColor;
+        image [i] = (hostBuffer [i] == 1) ? cl_float3 {1.0f, 1.0f, 0.0f} : cl_float3 {0.0f, 0.0f, 0.0f};
 }
 
 
@@ -210,17 +212,15 @@ void InitOpenGL (void)
 void Display (void)
 {
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    if (running)
-        RunOpenCL ();
     glDrawPixels (WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, image);
-
     glutSwapBuffers ();
 }
 
 
 void Idle (void)
 {
+    if (running)
+        RunOpenCL ();
     glutPostRedisplay ();
 }
 
@@ -229,6 +229,7 @@ void KeyDown (unsigned char key, int /*x*/, int /*y*/)
 {
     keysPressed [key] = true;
 }
+
 
 void KeyUp (unsigned char key, int /*x*/, int /*y*/)
 {
@@ -240,6 +241,10 @@ void KeyUp (unsigned char key, int /*x*/, int /*y*/)
             break;
         case 32:
             running = !running;
+            break;
+        case 'R': case 'r':
+            if (InitData () == false)
+                exit (-1);
             break;
     }
 }
