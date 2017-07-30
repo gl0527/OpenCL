@@ -6,73 +6,73 @@
 
 // global constants
 const std::string PROGRAM_SOURCE = STRINGIFY (
-	/* -*- mode: c++ -*- */
+    /* -*- mode: c++ -*- */
 
-	// *************
-	// Simulation
-	// *************
-	__constant float dt = 1.0e-3;
-	__constant float G  = 5.0e-2;
-	__constant float eps  = 1.0e-1;
+    // *************
+    // Simulation
+    // *************
+    __constant float dt = 1.0e-3;
+    __constant float G  = 5.0e-2;
+    __constant float eps  = 1.0e-1;
 
-	__kernel
+    __kernel
     void SimulationKernel (__global float4* particles, const int BODY_NUM)
-	{
-		int id = get_global_id (0);
-		float2 F = (float2) (0.0f, 0.0f);
-
-		for (int i = 0; i < BODY_NUM; ++i)
-		{
-			if (i != id)
-			{
-				float2 r = particles [i].xy - particles [id].xy;
-				float l = length (r);
-				F += r / pow (l * l + eps * eps, 1.5f);
-			}
-		}
-		F *= G;
-
-		float2 vel = particles [id].zw + F * dt;
-		float2 pos = particles [id].xy + vel * dt;
-
-		particles [id] = (float4) (pos, vel);
-	}
-
-	// *************
-	// Visualization
-	// *************
-	__kernel
-	void VisualizationClear (const int width, const int height, __global float4* visualizationBuffer)
     {
-	    int2 id = (int2) (get_global_id (0), get_global_id (1));
+        int id = get_global_id (0);
+        float2 F = (float2) (0.0f, 0.0f);
 
-	    if (id.x < width && id.y < height)
-		    visualizationBuffer [id.x + id.y * width] = (float4) (0.0f);
-	}
+        for (int i = 0; i < BODY_NUM; ++i)
+        {
+            if (i != id)
+            {
+                float2 r = particles [i].xy - particles [id].xy;
+                float l = length (r);
+                F += r / pow (l * l + eps * eps, 1.5f);
+            }
+        }
+        F *= G;
+
+        float2 vel = particles [id].zw + F * dt;
+        float2 pos = particles [id].xy + vel * dt;
+
+        particles [id] = (float4) (pos, vel);
+    }
+
+    // *************
+    // Visualization
+    // *************
+    __kernel
+    void VisualizationClear (const int width, const int height, __global float4* visualizationBuffer)
+    {
+        int2 id = (int2) (get_global_id (0), get_global_id (1));
+
+        if (id.x < width && id.y < height)
+            visualizationBuffer [id.x + id.y * width] = (float4) (0.0f);
+    }
 
 
-	int2 Sampl (int2 coord, int width, int height)
-	{
-		int x = max (min (width - 1, coord.x), 0);
-		int y = max (min (height - 1, coord.y), 0);
-		return (int2) (x,y);
-	}
+    int2 Sampl (int2 coord, int width, int height)
+    {
+        int x = max (min (width - 1, coord.x), 0);
+        int y = max (min (height - 1, coord.y), 0);
+        return (int2) (x,y);
+    }
 
-	__constant float r = 2.0e-3;
+    __constant float r = 2.0e-3;
 
-	__kernel
-	void Visualization (const int width, const int height, __global float4* visualizationBuffer, __global float4* particleBuffer)
-	{
-		int id = get_global_id (0);
-		float4 posdir = particleBuffer [id];
-		int w = width * r;
-		for (int i = -w; i <= w; ++i)
-		for (int j = -w; j <= w; ++j)
-		{
-			int2 coord = Sampl ( (int2) (posdir.x * (width -1) + i, posdir.y * (height -1) + j), width , height);
-			visualizationBuffer [coord.x + coord.y * width] = (float4) (1, 1, 1, 1);
-		}
-	}
+    __kernel
+    void Visualization (const int width, const int height, __global float4* visualizationBuffer, __global float4* particleBuffer)
+    {
+        int id = get_global_id (0);
+        float4 posdir = particleBuffer [id];
+        int w = width * r;
+        for (int i = -w; i <= w; ++i)
+        for (int j = -w; j <= w; ++j)
+        {
+            int2 coord = Sampl ( (int2) (posdir.x * (width -1) + i, posdir.y * (height -1) + j), width , height);
+            visualizationBuffer [coord.x + coord.y * width] = (float4) (1, 1, 1, 1);
+        }
+    }
 );
 
 const size_t BODY_NUM = 5000;
@@ -124,10 +124,10 @@ bool ResetSimulation (void)
 
 bool AllocateVisualizationBuffers (void)
 {
-	visualizationBufferSize [0] = visualizationWidth;
-	visualizationBufferSize [1] = visualizationHeight;
-	if (visualizationBufferCPU != nullptr)
-		delete [] visualizationBufferCPU;
+    visualizationBufferSize [0] = visualizationWidth;
+    visualizationBufferSize [1] = visualizationHeight;
+    if (visualizationBufferCPU != nullptr)
+        delete [] visualizationBufferCPU;
 
     try {
         visualizationBufferCPU = new cl_float4 [visualizationWidth * visualizationHeight];
@@ -136,7 +136,7 @@ bool AllocateVisualizationBuffers (void)
 
         return false;
     }
-	visualizationBufferGPU = cl::Buffer (context, CL_MEM_READ_WRITE, sizeof (cl_float4) * visualizationWidth * visualizationHeight, nullptr, &errorCode);
+    visualizationBufferGPU = cl::Buffer (context, CL_MEM_READ_WRITE, sizeof (cl_float4) * visualizationWidth * visualizationHeight, nullptr, &errorCode);
     if (errorCode != CL_SUCCESS)
         return false;
 
@@ -148,18 +148,18 @@ bool InitSimulation (void)
 {
     std::vector<cl::Platform> platforms;
 
-	cl::Platform::get (&platforms);
-	if (platforms.size () == 0)
-	{
-		std::cout << "Unable to find suitable platform." << std::endl;
+    cl::Platform::get (&platforms);
+    if (platforms.size () == 0)
+    {
+        std::cout << "Unable to find suitable platform." << std::endl;
 
-		return false;
-	}
+        return false;
+    }
 
-	cl_context_properties properties [] =
+    cl_context_properties properties [] =
         { CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms [0]) (), 0 };
 
-	context = cl::Context (CL_DEVICE_TYPE_GPU, properties, nullptr, nullptr, &errorCode);
+    context = cl::Context (CL_DEVICE_TYPE_GPU, properties, nullptr, nullptr, &errorCode);
     if (errorCode != CL_SUCCESS)
         return false;
 
@@ -167,11 +167,11 @@ bool InitSimulation (void)
     if (errorCode != CL_SUCCESS)
         return false;
 
-	queue = cl::CommandQueue (context, devices [0], 0, &errorCode);
+    queue = cl::CommandQueue (context, devices [0], 0, &errorCode);
     if (errorCode != CL_SUCCESS)
         return false;
 
-	program = cl::Program (context, PROGRAM_SOURCE);
+    program = cl::Program (context, PROGRAM_SOURCE);
     errorCode = program.build (devices);
     if (errorCode != CL_SUCCESS) {
         std::string buildlog = program.getBuildInfo<CL_PROGRAM_BUILD_LOG> (devices [0]);
@@ -180,15 +180,15 @@ bool InitSimulation (void)
         return false;
     }
 
-	visualizationClearKernel = cl::Kernel (program, "VisualizationClear", &errorCode);
+    visualizationClearKernel = cl::Kernel (program, "VisualizationClear", &errorCode);
     if (errorCode != CL_SUCCESS)
         return false;
 
-	visualizationKernel = cl::Kernel (program, "Visualization", &errorCode);
+    visualizationKernel = cl::Kernel (program, "Visualization", &errorCode);
     if (errorCode != CL_SUCCESS)
         return false;
 
-	simulationKernel = cl::Kernel (program, "SimulationKernel", &errorCode);
+    simulationKernel = cl::Kernel (program, "SimulationKernel", &errorCode);
     if (errorCode != CL_SUCCESS)
         return false;
 
@@ -200,15 +200,15 @@ bool InitSimulation (void)
         return false;
     }
 
-	particlesBufferGPU = cl::Buffer (context, CL_MEM_READ_WRITE, sizeof (cl_float4) * BODY_NUM, nullptr, &errorCode);
+    particlesBufferGPU = cl::Buffer (context, CL_MEM_READ_WRITE, sizeof (cl_float4) * BODY_NUM, nullptr, &errorCode);
     if (errorCode != CL_SUCCESS)
         return false;
 
-	if (!AllocateVisualizationBuffers ())
+    if (!AllocateVisualizationBuffers ())
         return false;
 
-	if (!ResetSimulation ())
-	    return false;
+    if (!ResetSimulation ())
+        return false;
 
     return true;
 }
@@ -229,34 +229,34 @@ void RunSimulationKernel (void)
 
 void RunVisualizationKernels (void)
 {
-	errorCode = visualizationClearKernel.setArg (0, visualizationWidth);
-	errorCode |= visualizationClearKernel.setArg (1, visualizationHeight);
-	errorCode |= visualizationClearKernel.setArg (2, visualizationBufferGPU);
+    errorCode = visualizationClearKernel.setArg (0, visualizationWidth);
+    errorCode |= visualizationClearKernel.setArg (1, visualizationHeight);
+    errorCode |= visualizationClearKernel.setArg (2, visualizationBufferGPU);
     if (errorCode != CL_SUCCESS)
         exit (-1);
 
-	cl::Event event;
-	errorCode = queue.enqueueNDRangeKernel (visualizationClearKernel, cl::NullRange, cl::NDRange (visualizationWidth, visualizationHeight), cl::NullRange, nullptr, &event);
+    cl::Event event;
+    errorCode = queue.enqueueNDRangeKernel (visualizationClearKernel, cl::NullRange, cl::NDRange (visualizationWidth, visualizationHeight), cl::NullRange, nullptr, &event);
     if (errorCode != CL_SUCCESS)
         exit (-1);
 
-	errorCode = visualizationKernel.setArg (0, visualizationWidth);
-	errorCode |= visualizationKernel.setArg (1, visualizationHeight);
-	errorCode |= visualizationKernel.setArg (2, visualizationBufferGPU);
-	errorCode |= visualizationKernel.setArg (3, particlesBufferGPU);
+    errorCode = visualizationKernel.setArg (0, visualizationWidth);
+    errorCode |= visualizationKernel.setArg (1, visualizationHeight);
+    errorCode |= visualizationKernel.setArg (2, visualizationBufferGPU);
+    errorCode |= visualizationKernel.setArg (3, particlesBufferGPU);
     if (errorCode != CL_SUCCESS)
         exit (-1);
-	
+    
     errorCode = queue.enqueueNDRangeKernel (visualizationKernel, cl::NullRange, cl::NDRange (BODY_NUM), cl::NullRange, nullptr, &event);
     if (errorCode != CL_SUCCESS)
         exit (-1);
 
-	errorCode = 
+    errorCode = 
         queue.enqueueReadBuffer (visualizationBufferGPU, CL_TRUE, 0, sizeof (cl_float4) * visualizationWidth * visualizationHeight, visualizationBufferCPU, nullptr, &event);
     if (errorCode != CL_SUCCESS)
         exit (-1);
 
-	glDrawPixels (visualizationWidth, visualizationHeight, GL_RGBA, GL_FLOAT, visualizationBufferCPU);
+    glDrawPixels (visualizationWidth, visualizationHeight, GL_RGBA, GL_FLOAT, visualizationBufferCPU);
 }
 
 
@@ -272,48 +272,48 @@ void DestroySimulation (void)
 // OpenGL
 void InitOpenGL (void)
 {
-	glClearColor (0.17f, 0.4f, 0.6f, 1.0f);
-	glDisable (GL_DEPTH_TEST);
+    glClearColor (0.17f, 0.4f, 0.6f, 1.0f);
+    glDisable (GL_DEPTH_TEST);
 }
 
 
 void Display (void)
 {
-	glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	RunSimulationKernel ();
-	RunVisualizationKernels ();
+    RunSimulationKernel ();
+    RunVisualizationKernels ();
 
-	glutSwapBuffers ();
+    glutSwapBuffers ();
 }
 
 
 void Idle (void)
 {
-	glutPostRedisplay ();
+    glutPostRedisplay ();
 }
 
 
 void KeyDown (unsigned char key, int /*x*/, int /*y*/)
 {
-	keysPressed [key] = true;
+    keysPressed [key] = true;
 }
 
 
 void KeyUp (unsigned char key, int /*x*/, int /*y*/)
 {
-	keysPressed [key] = false;
-	switch (key) {
+    keysPressed [key] = false;
+    switch (key) {
 
-	case 'R': case 'r':
-		ResetSimulation ();
-		break;
+    case 'R': case 'r':
+        ResetSimulation ();
+        break;
 
-	case 27:
+    case 27:
         DestroySimulation ();
-		exit (0);
-		break;
-	}
+        exit (0);
+        break;
+    }
 }
 
 
@@ -329,10 +329,10 @@ void MouseMove (int /*x*/, int /*y*/)
 
 void Reshape (int newWidth, int newHeight)
 {
-	visualizationWidth = newWidth;
-	visualizationHeight = newHeight;
-	AllocateVisualizationBuffers ();
-	glViewport (0, 0, visualizationWidth, visualizationHeight);
+    visualizationWidth = newWidth;
+    visualizationHeight = newHeight;
+    AllocateVisualizationBuffers ();
+    glViewport (0, 0, visualizationWidth, visualizationHeight);
 }
 
 
@@ -340,28 +340,28 @@ int main (int argc, char* argv [])
 {
     srand (time (0));
 
-	// OpenCL processing
-	if (!InitSimulation ())
+    // OpenCL processing
+    if (!InitSimulation ())
         return -1;
 
-	glutInit (&argc, argv);
-	glutInitContextVersion (3, 0);
-	glutInitContextFlags (GLUT_CORE_PROFILE | GLUT_DEBUG);
-	glutInitDisplayMode (GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
-	glutInitWindowSize (visualizationWidth, visualizationHeight);
-	glutCreateWindow ("NBODY");
+    glutInit (&argc, argv);
+    glutInitContextVersion (3, 0);
+    glutInitContextFlags (GLUT_CORE_PROFILE | GLUT_DEBUG);
+    glutInitDisplayMode (GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+    glutInitWindowSize (visualizationWidth, visualizationHeight);
+    glutCreateWindow ("NBODY");
 
-	InitOpenGL ();
+    InitOpenGL ();
 
-	glutDisplayFunc (Display);
-	glutIdleFunc (Idle);
-	glutReshapeFunc (Reshape);
-	glutKeyboardFunc (KeyDown);
-	glutKeyboardUpFunc (KeyUp);
-	glutMouseFunc (MouseClick);
-	glutMotionFunc (MouseMove);
+    glutDisplayFunc (Display);
+    glutIdleFunc (Idle);
+    glutReshapeFunc (Reshape);
+    glutKeyboardFunc (KeyDown);
+    glutKeyboardUpFunc (KeyUp);
+    glutMouseFunc (MouseClick);
+    glutMotionFunc (MouseMove);
 
-	glutMainLoop ();
-	return (0);
+    glutMainLoop ();
+    return (0);
 }
 
