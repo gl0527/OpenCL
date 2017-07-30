@@ -1,0 +1,5 @@
+CC=g++
+CFLAGS=-std=c++11 -lglut -lGL -lOpenCL
+
+nbody: NBody.cpp
+	$(CC) NBody.cpp $(CFLAGS)
