@@ -1,6 +1,12 @@
-#include <GL/freeglut.h>
-#include <CL/cl2.hpp>
-#include "../Common.h"
+#ifdef WINDOWS
+    #include <GL\freeglut.h>
+    #include <CL\cl2.hpp>
+#elif defined (__linux__)
+    #include <GL/freeglut.h>
+    #include <CL/cl2.hpp>
+#endif
+
+#include "Common.h"
 
 // global constants
 const char* kernelString = STRINGIFY (
