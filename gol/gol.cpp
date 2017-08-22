@@ -1,12 +1,12 @@
 #ifdef WINDOWS
-    #include <GL\freeglut.h>
-    #include <CL\cl2.hpp>
+#include <GL\freeglut.h>
+#include <CL\cl2.hpp>
 #elif defined (__linux__)
-    #include <GL/freeglut.h>
-    #include <CL/cl2.hpp>
+#include <GL/freeglut.h>
+#include <CL/cl2.hpp>
 #endif
-
 #include "Common.h"
+
 
 const char* programSource = STRINGIFY (
     __kernel
@@ -85,7 +85,6 @@ bool AllocateData (void)
 
     return true;
 }
-
 
 
 bool InitData (void)
@@ -205,7 +204,7 @@ void RunOpenCL (void)
     
     // updating the image
     for (size_t i = 0; i < screenWidth * screenHeight; ++i)
-        image [i] = (hostBuffer [i] == 1) ? cl_float3 {1.0f, 1.0f, 0.0f} : cl_float3 {0.0f, 0.0f, 0.0f};
+        image [i] = (hostBuffer [i] == 1) ? cl_float3 {0.22f, 1.0f, 0.08f} : cl_float3 {0.0f, 0.0f, 0.0f};
 }
 
 
@@ -237,9 +236,13 @@ void InitOpenGL (void)
 
 void Display (void)
 {
-    glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDrawPixels (screenWidth, screenHeight, GL_RGBA, GL_FLOAT, image);
-    glutSwapBuffers ();
+    // TODO texturaba kellene rajzolni, mert ez kurva lassu!!!
+    if (isRunning)
+    {
+        glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDrawPixels (screenWidth, screenHeight, GL_RGBA, GL_FLOAT, image);
+        glutSwapBuffers ();
+    }
 }
 
 
@@ -266,14 +269,14 @@ void KeyUp (unsigned char key, int /*x*/, int /*y*/)
             DestroyOpenCL ();
             exit (0);
             break;
+
         case 32:
             isRunning = !isRunning;
             break;
+
         case 'R': case 'r':
             if (!InitData ())
                 exit (-1);
-            break;
-        default:
             break;
     }
 }
@@ -308,22 +311,22 @@ int main (int argc, char* argv [])
     if (!InitOpenCL ())
         return 1;
 
-    glutInit                (&argc, argv);
-    glutInitContextVersion  (3, 0);
-    glutInitContextFlags    (GLUT_CORE_PROFILE | GLUT_DEBUG);
-    glutInitDisplayMode     (GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
-    glutInitWindowSize      (screenWidth, screenHeight);
-    glutCreateWindow        ("Game of life");
+    glutInit (&argc, argv);
+    glutInitContextVersion (3, 0);
+    glutInitContextFlags (GLUT_CORE_PROFILE | GLUT_DEBUG);
+    glutInitDisplayMode (GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
+    glutInitWindowSize (screenWidth, screenHeight);
+    glutCreateWindow ("Game of life");
 
     InitOpenGL ();
 
-    glutDisplayFunc     (Display);
-    glutIdleFunc        (Idle);
-    glutReshapeFunc     (Reshape);
-    glutKeyboardFunc    (KeyDown);
-    glutKeyboardUpFunc  (KeyUp);
-    glutMouseFunc       (MouseClick);
-    glutMotionFunc      (MouseMove);
+    glutDisplayFunc (Display);
+    glutIdleFunc (Idle);
+    glutReshapeFunc (Reshape);
+    glutKeyboardFunc (KeyDown);
+    glutKeyboardUpFunc (KeyUp);
+    glutMouseFunc (MouseClick);
+    glutMotionFunc (MouseMove);
 
     glutMainLoop ();
 
