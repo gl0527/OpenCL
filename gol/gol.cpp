@@ -1,11 +1,6 @@
-#ifdef WINDOWS
-#include <GL\freeglut.h>
-#include <CL\cl2.hpp>
-#elif defined (__linux__)
 #include <GL/freeglut.h>
 #include <CL/cl2.hpp>
-#endif
-#include "Common.h"
+#include "../Common.h"
 
 
 const char* programSource = STRINGIFY (
@@ -31,23 +26,23 @@ const char* programSource = STRINGIFY (
     }
 );
 
-size_t screenWidth              = 800;
-size_t screenHeight             = 600;
-size_t globalWorkSize [2]       = { 0 };
-bool keysPressed [256]          = { false };
-bool isRunning                  = true;
+size_t screenWidth          = 800;
+size_t screenHeight         = 600;
+size_t globalWorkSize [2]   = { 0 };
+bool keysPressed [256]      = { false };
+bool isRunning              = true;
 
-cl_context context              = nullptr;
-cl_command_queue commands       = nullptr;
-cl_program program              = nullptr;
-cl_kernel kernel                = nullptr;
+cl_context context          = nullptr;
+cl_command_queue commands   = nullptr;
+cl_program program          = nullptr;
+cl_kernel kernel            = nullptr;
                               
-char* hostBuffer                = nullptr;
-cl_float3* image                = nullptr;
-cl_mem deviceBufferIn           = nullptr;
-cl_mem deviceBufferOut          = nullptr;
+char* hostBuffer            = nullptr;
+cl_float3* image            = nullptr;
+cl_mem deviceBufferIn       = nullptr;
+cl_mem deviceBufferOut      = nullptr;
 
-cl_int errorCode                = CL_SUCCESS;
+cl_int errorCode            = CL_SUCCESS;
 
 
 bool AllocateData (void)
@@ -72,14 +67,27 @@ bool AllocateData (void)
     }
 
     // (re)allocating device data
-    clReleaseMemObject (deviceBufferIn);
-    clReleaseMemObject (deviceBufferOut);
+    if (deviceBufferOut != nullptr)
+        clReleaseMemObject (deviceBufferOut);
+    
+    if (deviceBufferIn != nullptr)
+        clReleaseMemObject (deviceBufferIn);
 
-    deviceBufferIn = clCreateBuffer (context, CL_MEM_READ_WRITE, screenWidth * screenHeight, nullptr, &errorCode);
+    deviceBufferIn = clCreateBuffer (context,
+                                    CL_MEM_READ_WRITE,
+                                    screenWidth * screenHeight,
+                                    nullptr,
+                                    &errorCode);
+
     if (deviceBufferIn == nullptr || !CheckCLError (errorCode))
         return false;
 
-    deviceBufferOut = clCreateBuffer (context, CL_MEM_READ_WRITE, screenWidth * screenHeight, nullptr, &errorCode);
+    deviceBufferOut = clCreateBuffer (context,
+                                    CL_MEM_READ_WRITE,
+                                    screenWidth * screenHeight,
+                                    nullptr,
+                                    &errorCode);
+
     if (deviceBufferOut == nullptr || !CheckCLError (errorCode))
         return false;
 
@@ -93,7 +101,16 @@ bool InitData (void)
     for (size_t i = 0; i < screenWidth * screenHeight; ++i)
         hostBuffer [i] = (static_cast<float> (rand ()) / RAND_MAX < 0.3) ? 1 : 0;
 
-    errorCode = clEnqueueWriteBuffer (commands, deviceBufferIn, CL_TRUE, 0, screenWidth * screenHeight, hostBuffer, 0, nullptr, nullptr);
+    errorCode = clEnqueueWriteBuffer (commands,
+                                    deviceBufferIn,
+                                    CL_TRUE, 
+                                    0,
+                                    screenWidth * screenHeight,
+                                    hostBuffer,
+                                    0,
+                                    nullptr,
+                                    nullptr);
+
     if (!CheckCLError (errorCode))
         return false;
 
@@ -110,46 +127,66 @@ bool InitOpenCL (void)
     if (!CheckCLError (errorCode))
         return false;
     
-    const char MAXLENGTH = 40;
-    char vendorName [MAXLENGTH];
-    clGetPlatformInfo (platform, CL_PLATFORM_VENDOR, MAXLENGTH, vendorName, nullptr);
-    printf ("GPU vendor: %s\n", vendorName);
-
     // get available GPU devices - we want to get maximum 1 device
     cl_device_id device = nullptr;
-    errorCode = clGetDeviceIDs (platform, CL_DEVICE_TYPE_GPU, 1, &device, nullptr);
+    errorCode = clGetDeviceIDs (platform,
+                                CL_DEVICE_TYPE_GPU,
+                                1,
+                                &device,
+                                nullptr);
+
     if (!CheckCLError (errorCode))
         return false;
 
-    char deviceName [MAXLENGTH];
-    clGetDeviceInfo (device, CL_DEVICE_NAME, MAXLENGTH, deviceName, nullptr);
-    printf ("GPU device: %s\n", deviceName);
+    // creation of OpenCL context
+    context = clCreateContext (nullptr,
+                            1,
+                            &device,
+                            nullptr,
+                            nullptr,
+                            &errorCode);
 
-    // creation of OpenCL context with given properties
-    cl_context_properties props [] = { 
-        CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 
-    };
-    context = clCreateContext (props, 1, &device, nullptr, nullptr, &errorCode);
     if (context == nullptr || !CheckCLError (errorCode))
         return false;
 
     // creation of OpenCL command queue with the CL_QUEUE_PROFILING_ENABLE property
-    commands = clCreateCommandQueue (context, device, CL_QUEUE_PROFILING_ENABLE, &errorCode);
+    commands = clCreateCommandQueue (context,
+                                    device,
+                                    CL_QUEUE_PROFILING_ENABLE,
+                                    &errorCode);
+
     if (commands == nullptr || !CheckCLError (errorCode))
         return false;
 
     // creation of the program
-    program = clCreateProgramWithSource (context, 1, &programSource, nullptr, &errorCode);
+    program = clCreateProgramWithSource (context,
+                                        1,
+                                        &programSource,
+                                        nullptr,
+                                        &errorCode);
+
     if (!CheckCLError (errorCode))
         return false;
 
     // compilation of the program
-    errorCode = clBuildProgram (program, 1, &device, nullptr, nullptr, nullptr);
+    errorCode = clBuildProgram (program,
+                                1,
+                                &device,
+                                nullptr,
+                                nullptr,
+                                nullptr);
+
     if (!CheckCLError (errorCode))
     {
         size_t logLength;
         char* log = nullptr;
-        clGetProgramBuildInfo (program, device, CL_PROGRAM_BUILD_LOG, 0, nullptr, &logLength);
+        clGetProgramBuildInfo (program,
+                            device,
+                            CL_PROGRAM_BUILD_LOG,
+                            0,
+                            nullptr,
+                            &logLength);
+
         try {
             log = new char [logLength];
         } catch (const std::bad_alloc& ba) {
@@ -157,7 +194,13 @@ bool InitOpenCL (void)
 
             return false;
         }
-        clGetProgramBuildInfo (program, device, CL_PROGRAM_BUILD_LOG, logLength, log, 0);
+        clGetProgramBuildInfo (program,
+                            device,
+                            CL_PROGRAM_BUILD_LOG,
+                            logLength,
+                            log,
+                            nullptr);
+
         std::cout << log << std::endl;
         if (log != nullptr)
             delete [] log;
@@ -189,13 +232,31 @@ void RunOpenCL (void)
         exit (-1);
 
     // kernel execution
-    errorCode = clEnqueueNDRangeKernel (commands, kernel, 2, nullptr, globalWorkSize, nullptr, 0, nullptr, nullptr);
+    errorCode = clEnqueueNDRangeKernel (commands,
+                                        kernel,
+                                        2,
+                                        nullptr,
+                                        globalWorkSize,
+                                        nullptr,
+                                        0,
+                                        nullptr,
+                                        nullptr);
+
     if (!CheckCLError (errorCode))
         exit (-1);
 
     // getting back the results
     clFinish (commands);
-    errorCode = clEnqueueReadBuffer (commands, deviceBufferOut, CL_TRUE, 0, screenWidth * screenHeight, hostBuffer, 0, nullptr, nullptr);
+    errorCode = clEnqueueReadBuffer (commands,
+                                    deviceBufferOut,
+                                    CL_TRUE,
+                                    0,
+                                    screenWidth * screenHeight,
+                                    hostBuffer,
+                                    0,
+                                    nullptr,
+                                    nullptr);
+
     if (!CheckCLError (errorCode))
         exit (-1);
 
@@ -236,7 +297,6 @@ void InitOpenGL (void)
 
 void Display (void)
 {
-    // TODO texturaba kellene rajzolni, mert ez kurva lassu!!!
     if (isRunning)
     {
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -264,7 +324,8 @@ void KeyUp (unsigned char key, int /*x*/, int /*y*/)
 {
     keysPressed [key] = false;
 
-    switch (key) {
+    switch (key)
+    {
         case 27:
             DestroyOpenCL ();
             exit (0);
